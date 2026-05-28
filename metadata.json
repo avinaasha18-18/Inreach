@@ -1,0 +1,6 @@
+{
+  "name": "InReach",
+  "description": "Structured Opportunity Inbox & Collaboration Workspaces with INAI Aesthetic and Shake-to-Release Mechanic",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
