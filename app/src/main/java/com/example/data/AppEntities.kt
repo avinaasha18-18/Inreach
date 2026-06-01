@@ -14,7 +14,11 @@ data class ProfileEntity(
     val verificationTier: Int, // 1 to 5
     val availabilityWindows: String, // comma-separated JSON or human readable, e.g. "Collaboration: 9AM-2PM Mon-Fri"
     val avatarUrl: String,
-    val reputationScore: Int
+    val reputationScore: Int,
+    val cvFileName: String = "professional_portfolio_cv.pdf",
+    val cvFileSize: String = "4.2 MB",
+    val cvUpdatedDate: String = "May 28",
+    val subscriptionTier: String = "FREE" // FREE, RECIPIENT_PRO, WORKSPACE_PRO, VERIFIED_SENDER
 )
 
 @Entity(tableName = "messages")
@@ -98,3 +102,17 @@ data class MilestoneEntity(
     val targetDate: String,
     val isCompleted: Boolean = false
 )
+
+@Entity(tableName = "warm_intro_requests")
+data class WarmIntroRequest(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val senderUserId: String,
+    val senderName: String,
+    val mutualUserId: String,
+    val targetUserId: String,
+    val targetName: String,
+    val introMessage: String,
+    val status: String, // PENDING, APPROVED, DECLINED
+    val createdAt: Long = System.currentTimeMillis()
+)
+

@@ -119,4 +119,22 @@ class AppRepository(private val appDao: AppDao) {
     suspend fun deleteMilestone(milestone: MilestoneEntity) {
         appDao.deleteMilestone(milestone)
     }
+
+    suspend fun getMessagesByStatusSync(status: String): List<MessageEntity> {
+        return appDao.getMessagesByStatusSync(status)
+    }
+
+    val allWarmIntroRequests: Flow<List<WarmIntroRequest>> = appDao.getAllWarmIntroRequests()
+
+    fun getWarmIntroRequestsByMutual(mutualUserId: String): Flow<List<WarmIntroRequest>> {
+        return appDao.getWarmIntroRequestsByMutual(mutualUserId)
+    }
+
+    suspend fun insertWarmIntroRequest(request: WarmIntroRequest) {
+        appDao.insertWarmIntroRequest(request)
+    }
+
+    suspend fun updateWarmIntroRequestStatus(id: Int, status: String) {
+        appDao.updateWarmIntroRequestStatus(id, status)
+    }
 }

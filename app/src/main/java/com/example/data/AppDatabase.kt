@@ -14,9 +14,10 @@ import androidx.room.RoomDatabase
         StickyNoteEntity::class,
         TaskEntity::class,
         MeetingEntity::class,
-        MilestoneEntity::class
+        MilestoneEntity::class,
+        WarmIntroRequest::class
     ],
-    version = 1,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

@@ -106,4 +106,20 @@ interface AppDao {
 
     @Delete
     suspend fun deleteMilestone(milestone: MilestoneEntity)
+
+    @Query("SELECT * FROM messages WHERE status = :status")
+    suspend fun getMessagesByStatusSync(status: String): List<MessageEntity>
+
+    // --- Warm Introductions ---
+    @Query("SELECT * FROM warm_intro_requests")
+    fun getAllWarmIntroRequests(): Flow<List<WarmIntroRequest>>
+
+    @Query("SELECT * FROM warm_intro_requests WHERE mutualUserId = :mutualUserId")
+    fun getWarmIntroRequestsByMutual(mutualUserId: String): Flow<List<WarmIntroRequest>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertWarmIntroRequest(request: WarmIntroRequest): Long
+
+    @Query("UPDATE warm_intro_requests SET status = :status WHERE id = :id")
+    suspend fun updateWarmIntroRequestStatus(id: Int, status: String)
 }
