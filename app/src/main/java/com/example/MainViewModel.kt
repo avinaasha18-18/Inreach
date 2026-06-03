@@ -50,9 +50,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val themeMode = MutableStateFlow("InReach") // "InReach" (Navy/Gold) or "INAI" (Sandstone/Temple)
     val selectedWorkspaceId = MutableStateFlow<Int?>(null)
     val activeTab = MutableStateFlow("inbox") // "inbox", "workspaces", "analytics", "passports"
+    val isProSubscribed = MutableStateFlow(false) // Single source of truth for subscription state
 
     // --- Public Profile Viewer ---
-    val selectedProfileUsername = MutableStateFlow<String?>("meenakshi")
+    val selectedProfileUsername = MutableStateFlow<String?>("surya_jk")
 
     // --- Message Composer Questionnaire ---
     val selectedIntentType = MutableStateFlow("Collaboration")
@@ -141,7 +142,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         // Seeding database if empty
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 seedDatabase()
                 loadWorkspaceDetails()
@@ -171,14 +172,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun seedDatabase() {
         // Checking profiles
-        val hasProfiles = database.appDao().getProfileByUsername("avinaash") != null
+        val avinaashProfileCheck = database.appDao().getProfileByUsername("avinaash")
+        val hasProfiles = avinaashProfileCheck != null && avinaashProfileCheck.displayName == "Avinaash A"
         if (!hasProfiles) {
+            Log.d(TAG, "New profiles missing or outdated names. Clearing old database tables before seeding...")
+            database.clearAllTables()
             Log.d(TAG, "Seeding profiles database...")
             // 1. App user
             database.appDao().insertProfile(
                 ProfileEntity(
                     username = "avinaash",
-                    displayName = "Avinaash Anand",
+                    displayName = "Avinaash A",
                     bio = "Full-stack builder passionate about Global High-Trust Collaboration and Sandbox environments. Tamil heritage explorer.",
                     openIntents = "Collaboration, Mentorship, Speaking Invitation, Investment, Networking",
                     trustScore = 98,
@@ -190,16 +194,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             )
 
-            // 2. Collaborative Creators
+            // 2. Collaborative Peers
+            // --- Senders of Inbox Messages in Home ---
             database.appDao().insertProfile(
                 ProfileEntity(
-                    username = "meenakshi",
-                    displayName = "Meenakshi Iyer",
-                    bio = "Indian Traditional Art historian & Generative AI designer. Co-writing research on South Indian sandstone temple architecture and digital preservation.",
-                    openIntents = "Collaboration, Research, Speaking Invitation",
+                    username = "surya_jk",
+                    displayName = "Surya JK",
+                    bio = "Indian Traditional Art historian & Generative AI designer. Researching South Indian sandstone temple systems and heritage preservation.",
+                    openIntents = "Collaboration, Research",
                     trustScore = 94,
                     responseRate = 91,
-                    verificationTier = 4, // Professional verified
+                    verificationTier = 4,
                     availabilityWindows = "Research: 2PM-6PM Mon-Wed",
                     avatarUrl = "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop",
                     reputationScore = 93
@@ -208,13 +213,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             database.appDao().insertProfile(
                 ProfileEntity(
-                    username = "deepak",
-                    displayName = "Deepak Somnath",
-                    bio = "Venture Architect. Backing deep tech ecosystems. Sourcing bold co-founders for infrastructure pipelines.",
+                    username = "hairy_gowtham",
+                    displayName = "Hairy Gowtham",
+                    bio = "Venture Architect. Backing deep tech ecosystems and developer platforms. Sourcing bold co-founders.",
                     openIntents = "Investment, Networking",
                     trustScore = 89,
                     responseRate = 85,
-                    verificationTier = 3, // Social reference
+                    verificationTier = 3,
                     availabilityWindows = "Investment: 12PM-2PM Friday Only",
                     avatarUrl = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop",
                     reputationScore = 88
@@ -223,9 +228,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             database.appDao().insertProfile(
                 ProfileEntity(
-                    username = "sarah",
-                    displayName = "Sarah Johnson",
-                    bio = "Tech Recruiter seeking top mobile, web and visual engineering talents for innovative collaborative systems. Passionate about talent discovery.",
+                    username = "shreya_a",
+                    displayName = "Shreya A",
+                    bio = "UX Designer focusing on delightful user interfaces, dynamic micro-interactions, and Material 3 design systems.",
+                    openIntents = "Collaboration, Networking",
+                    trustScore = 91,
+                    responseRate = 88,
+                    verificationTier = 3,
+                    availabilityWindows = "Mon-Thu 10AM-4PM",
+                    avatarUrl = "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop",
+                    reputationScore = 90
+                )
+            )
+
+            database.appDao().insertProfile(
+                ProfileEntity(
+                    username = "dilli_raj",
+                    displayName = "Dilli Raj",
+                    bio = "Tech Recruiter seeking top mobile, web and visual engineering talents for innovative collaborative systems.",
                     openIntents = "Collaboration, Speaking Invitation",
                     trustScore = 93,
                     responseRate = 90,
@@ -238,53 +258,234 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             database.appDao().insertProfile(
                 ProfileEntity(
-                    username = "mike",
-                    displayName = "Mike Chen",
-                    bio = "Software Engineer working on open-source project and sandstone rendering pipelines. Enthusiastic developer.",
-                    openIntents = "Collaboration, Networking",
+                    username = "shagithiyan",
+                    displayName = "Shagithiyan",
+                    bio = "Web3 systems architect and smart contract auditor. Building secure sandboxes for collaborative nodes.",
+                    openIntents = "Collaboration, Investment",
                     trustScore = 95,
+                    responseRate = 93,
+                    verificationTier = 4,
+                    availabilityWindows = "Daily 11AM-5PM",
+                    avatarUrl = "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&h=150&fit=crop",
+                    reputationScore = 95
+                )
+            )
+
+            database.appDao().insertProfile(
+                ProfileEntity(
+                    username = "ramya",
+                    displayName = "Ramya",
+                    bio = "Linguist & Semantic AI engineer. Restoring ancient Tamil iconography and sandstone tablets with LLMs.",
+                    openIntents = "Collaboration, Research",
+                    trustScore = 96,
                     responseRate = 95,
                     verificationTier = 5,
-                    availabilityWindows = "Daily 2PM-6PM",
-                    avatarUrl = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop",
+                    availabilityWindows = "Mon-Alt Fri 9AM-2PM",
+                    avatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop",
                     reputationScore = 96
                 )
             )
 
             database.appDao().insertProfile(
                 ProfileEntity(
-                    username = "emma",
-                    displayName = "Emma Davis",
-                    bio = "UX Designer focusing on delightful user interfaces, dynamic micro-interactions, and Material 3 design systems.",
+                    username = "harshitha",
+                    displayName = "Harshitha",
+                    bio = "Platform Product Manager. Designing high-trust escrow workflows, verified credentials, and ID attestations.",
+                    openIntents = "Collaboration, Speaking Invitation",
+                    trustScore = 94,
+                    responseRate = 92,
+                    verificationTier = 3,
+                    availabilityWindows = "Tue-Thu 3PM-6PM",
+                    avatarUrl = "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=150&h=150&fit=crop",
+                    reputationScore = 94
+                )
+            )
+
+            database.appDao().insertProfile(
+                ProfileEntity(
+                    username = "kumar_spam",
+                    displayName = "Kumar Token Master",
+                    bio = "Sending unsolicited automated token offerings. Generating mass hype fast.",
+                    openIntents = "Networking, Investment",
+                    trustScore = 28,
+                    responseRate = 95,
+                    verificationTier = 1,
+                    availabilityWindows = "Always Open",
+                    avatarUrl = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop",
+                    reputationScore = 35
+                )
+            )
+
+            // --- Connected Peers in Connections & Workspaces ---
+            database.appDao().insertProfile(
+                ProfileEntity(
+                    username = "siddarth_p",
+                    displayName = "Siddarth P",
+                    bio = "Senior Graphics Developer working on high custom-drawing canvas and physical-drag mechanics.",
+                    openIntents = "Collaboration, Research",
+                    trustScore = 97,
+                    responseRate = 96,
+                    verificationTier = 5,
+                    availabilityWindows = "Daily 10AM-6PM",
+                    avatarUrl = "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&h=150&fit=crop",
+                    reputationScore = 98
+                )
+            )
+
+            database.appDao().insertProfile(
+                ProfileEntity(
+                    username = "dhanajeyan_j",
+                    displayName = "Dhanajeyan J",
+                    bio = "Creative Frontend Specialist. Custom design systems, responsive layouts, and edge-to-edge Compose aesthetics.",
+                    openIntents = "Collaboration, Networking",
+                    trustScore = 95,
+                    responseRate = 94,
+                    verificationTier = 4,
+                    availabilityWindows = "Daily 1PM-5PM",
+                    avatarUrl = "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&h=150&fit=crop",
+                    reputationScore = 96
+                )
+            )
+
+            database.appDao().insertProfile(
+                ProfileEntity(
+                    username = "gopi_d",
+                    displayName = "Gopi D",
+                    bio = "Rust & Native expert building modular backend routers and secure sandbox channels.",
+                    openIntents = "Collaboration, Networking",
+                    trustScore = 92,
+                    responseRate = 91,
+                    verificationTier = 3,
+                    availabilityWindows = "Mon-Fri 2PM-5PM",
+                    avatarUrl = "https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=150&h=150&fit=crop",
+                    reputationScore = 93
+                )
+            )
+
+            database.appDao().insertProfile(
+                ProfileEntity(
+                    username = "santhosh_s",
+                    displayName = "Santhosh S",
+                    bio = "Community Advocate. Cultivating decentralized groups of high-trust sandstone modelers.",
+                    openIntents = "Collaboration, Speaking Invitation",
+                    trustScore = 94,
+                    responseRate = 93,
+                    verificationTier = 4,
+                    availabilityWindows = "Wed-Fri 11AM-4PM",
+                    avatarUrl = "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&h=150&fit=crop",
+                    reputationScore = 95
+                )
+            )
+
+            // --- Peers in Explore registry ---
+            database.appDao().insertProfile(
+                ProfileEntity(
+                    username = "aswin",
+                    displayName = "Aswin",
+                    bio = "Full-Stack Dev passionate about Android, Node.js sandboxes, and Tamil typography mapping.",
                     openIntents = "Collaboration, Networking",
                     trustScore = 91,
-                    responseRate = 88,
+                    responseRate = 89,
                     verificationTier = 3,
-                    availabilityWindows = "Mon-Thu 10AM-4PM",
-                    avatarUrl = "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop",
+                    availabilityWindows = "Mon-Fri 9AM-1PM",
+                    avatarUrl = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop",
                     reputationScore = 90
                 )
             )
 
-            // 3. Spamtastic sender to test AI spam detection
             database.appDao().insertProfile(
                 ProfileEntity(
-                    username = "cryptobob",
-                    displayName = "Bob Crypto Shill",
-                    bio = "Sending unsolicited automated token offerings. Generating mass hype fast.",
-                    openIntents = "Networking, Investment",
-                    trustScore = 32,
-                    responseRate = 95,
-                    verificationTier = 1, // Email verified only
-                    availabilityWindows = "Always Open",
-                    avatarUrl = "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop",
-                    reputationScore = 40
+                    username = "haris",
+                    displayName = "Haris",
+                    bio = "AI Scientist training compact on-device models for spam scoring and intent categorization.",
+                    openIntents = "Collaboration, Research",
+                    trustScore = 93,
+                    responseRate = 92,
+                    verificationTier = 4,
+                    availabilityWindows = "Mon-Wed 10AM-4PM",
+                    avatarUrl = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop",
+                    reputationScore = 94
+                )
+            )
+
+            database.appDao().insertProfile(
+                ProfileEntity(
+                    username = "logithakshan",
+                    displayName = "Logithakshan",
+                    bio = "System admin organizing high-availability networks and decentralized DHT node indexing.",
+                    openIntents = "Collaboration, Networking",
+                    trustScore = 89,
+                    responseRate = 87,
+                    verificationTier = 3,
+                    availabilityWindows = "Daily 3PM-7PM",
+                    avatarUrl = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop",
+                    reputationScore = 89
+                )
+            )
+
+            database.appDao().insertProfile(
+                ProfileEntity(
+                    username = "karthik_raja",
+                    displayName = "Karthik Raja",
+                    bio = "Mobile Interaction Designer. Perfecting custom Material 3 ripples and edge-to-edge layouts.",
+                    openIntents = "Collaboration, Mentorship",
+                    trustScore = 95,
+                    responseRate = 94,
+                    verificationTier = 4,
+                    availabilityWindows = "Tue-Wed 2PM-6PM",
+                    avatarUrl = "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=150&h=150&fit=crop",
+                    reputationScore = 96
+                )
+            )
+
+            database.appDao().insertProfile(
+                ProfileEntity(
+                    username = "abishek_mr",
+                    displayName = "Abishek MR",
+                    bio = "DevOps Lead scaling secure decentralized workspaces across global peer-to-peer networks.",
+                    openIntents = "Collaboration, Networking",
+                    trustScore = 92,
+                    responseRate = 90,
+                    verificationTier = 4,
+                    availabilityWindows = "Mon-Fri 4PM-8PM",
+                    avatarUrl = "https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=150&h=150&fit=crop",
+                    reputationScore = 91
+                )
+            )
+
+            database.appDao().insertProfile(
+                ProfileEntity(
+                    username = "deepika_r",
+                    displayName = "Deepika R",
+                    bio = "FinTech Product Architect designing secure escrow lockers and multi-tier ID verification grids.",
+                    openIntents = "Investment, Networking",
+                    trustScore = 94,
+                    responseRate = 93,
+                    verificationTier = 5,
+                    availabilityWindows = "Daily 10AM-12PM",
+                    avatarUrl = "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=150&h=150&fit=crop",
+                    reputationScore = 95
+                )
+            )
+
+            database.appDao().insertProfile(
+                ProfileEntity(
+                    username = "preethi_k",
+                    displayName = "Preethi K",
+                    bio = "Frontend Architect crafting responsive, accessible visual portals and dynamic multi-window grids.",
+                    openIntents = "Collaboration, Speaking Invitation",
+                    trustScore = 93,
+                    responseRate = 91,
+                    verificationTier = 3,
+                    availabilityWindows = "Mon-Thu 9AM-4PM",
+                    avatarUrl = "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=150&h=150&fit=crop",
+                    reputationScore = 93
                 )
             )
 
             // Seed Some Messages (Inboxes)
             Log.d(TAG, "Seeding messages...")
-            val answersMeenakshi = JSONArray().apply {
+            val answersSurya = JSONArray().apply {
                 put("A Joint sandstone inscription digital restoration paper & interactive Web3 gallery.")
                 put("Technical pipeline using GANs mapping classical Kolam formulas.")
                 put("6 months target project length.")
@@ -293,11 +494,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             database.appDao().insertMessage(
                 MessageEntity(
                     id = 1,
-                    senderName = "Meenakshi Iyer",
-                    senderUsername = "meenakshi",
+                    senderName = "Surya JK",
+                    senderUsername = "surya_jk",
                     recipientUsername = "avinaash",
                     intent = "Collaboration",
-                    questionnaireAnswers = answersMeenakshi,
+                    questionnaireAnswers = answersSurya,
                     rawText = "I read your essay about digitalizing ancient classical Tamil iconography. I have access to a rich manuscript archive and want to explore mapping them to generative canvas designs using AI logic. Let's build a joint restoration project!",
                     status = "UNREAD",
                     priorityScore = 92,
@@ -310,7 +511,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
 
             // Escrow Refinement Message Placeholder
-            val answersDeepak = JSONArray().apply {
+            val answersGowtham = JSONArray().apply {
                 put("Pre-Seed venture backing loop.")
                 put("Looking for tech founder mapping high performance compute frameworks.")
                 put("Target raised: $450k with lead commitment.")
@@ -319,11 +520,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             database.appDao().insertMessage(
                 MessageEntity(
                     id = 2,
-                    senderName = "Deepak Somnath",
-                    senderUsername = "deepak",
+                    senderName = "Hairy Gowtham",
+                    senderUsername = "hairy_gowtham",
                     recipientUsername = "avinaash",
                     intent = "Investment",
-                    questionnaireAnswers = answersDeepak,
+                    questionnaireAnswers = answersGowtham,
                     rawText = "Avinaash, we are scouting for visual systems core builder to co-found the next sandstone rendering platform. We have a solid term sheet and want to escrow this inquiry while your profile is finishing verification.",
                     status = "ESCROW",
                     priorityScore = 84,
@@ -339,8 +540,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             database.appDao().insertMessage(
                 MessageEntity(
                     id = 3,
-                    senderName = "Suresh Speaking Coordinator",
-                    senderUsername = "suresh",
+                    senderName = "Shreya A",
+                    senderUsername = "shreya_a",
                     recipientUsername = "avinaash",
                     intent = "Speaking Invitation",
                     questionnaireAnswers = "[\"Panelist discussion on Tamil Digital Humanities\",\"Speaker stipend coverage\",\"Estimated 400 college attendees\"]",
@@ -358,8 +559,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             database.appDao().insertMessage(
                 MessageEntity(
                     id = 4,
-                    senderName = "Bob Crypto Shill",
-                    senderUsername = "cryptobob",
+                    senderName = "Kumar Token Master",
+                    senderUsername = "kumar_spam",
                     recipientUsername = "avinaash",
                     intent = "Investment",
                     questionnaireAnswers = "[\"Seed stage hypergrowth\",\"Uncapped meme tokens\",\"Instantly!\"]",
@@ -384,8 +585,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             database.appDao().insertMessage(
                 MessageEntity(
                     id = 5,
-                    senderName = "Sandstone Media Inc",
-                    senderUsername = "tamildesa",
+                    senderName = "Siddarth P",
+                    senderUsername = "siddarth_p",
                     recipientUsername = "avinaash",
                     intent = "Collaboration",
                     questionnaireAnswers = answersAlreadyAccepted,
@@ -403,8 +604,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             database.appDao().insertMessage(
                 MessageEntity(
                     id = 6,
-                    senderName = "Sarah Johnson",
-                    senderUsername = "sarah",
+                    senderName = "Dilli Raj",
+                    senderUsername = "dilli_raj",
                     recipientUsername = "avinaash",
                     intent = "Collaboration",
                     questionnaireAnswers = "[\"Senior visual and application engineer\",\"Material design proficiency\",\"ASAP starting window\"]",
@@ -422,8 +623,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             database.appDao().insertMessage(
                 MessageEntity(
                     id = 7,
-                    senderName = "Mike Chen",
-                    senderUsername = "mike",
+                    senderName = "Dhanajeyan J",
+                    senderUsername = "dhanajeyan_j",
                     recipientUsername = "avinaash",
                     intent = "Collaboration",
                     questionnaireAnswers = "[\"Open-source sandstone rendering project\",\"Collaborative joint modules\",\"Active repo access\"]",
@@ -441,8 +642,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             database.appDao().insertMessage(
                 MessageEntity(
                     id = 8,
-                    senderName = "Emma Davis",
-                    senderUsername = "emma",
+                    senderName = "Harshitha",
+                    senderUsername = "harshitha",
                     recipientUsername = "avinaash",
                     intent = "Collaboration",
                     questionnaireAnswers = "[\"Delightful dynamic micro-interactions\",\"M3 design system spec\",\"Remote feedback loop\"]",
@@ -457,17 +658,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             )
 
-            // Seed an active workspace for Mike Chen as well!
+            // Seed an active workspace for Dhanajeyan J as well!
             database.appDao().insertWorkspace(
                 WorkspaceEntity(
                     id = 2,
                     messageId = 7,
                     originalIntent = "Collaboration",
                     recipientUsername = "avinaash",
-                    senderUsername = "mike",
-                    title = "Open-Source Sandstone Workspace",
-                    docContent = "Let's build sandstone-carved digital tablet application honoring ancient heritage manuscripts with actual responsive physics UI layout.\n\nProject proposal drafts active here.",
-                    proofOfWorkSummary = "Drafting initial rendering shaders..."
+                    senderUsername = "dhanajeyan_j",
+                    title = "Assets & Prototype with Dhanajeyan J",
+                    docContent = "Let's build sandstone-carved digital tablet application honoring ancient heritage manuscripts with actual responsive physics UI layout.\n\nProject proposal drafts active here with Dhanajeyan.",
+                    proofOfWorkSummary = "In progress. Sandstone manuscript design asset pipeline set in workspace draft editor."
                 )
             )
 
@@ -478,9 +679,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     messageId = 5,
                     originalIntent = "Collaboration",
                     recipientUsername = "avinaash",
-                    senderUsername = "tamildesa",
-                    title = "Sandstone Manuscript Tablet Workspace",
-                    docContent = "# Sandstone Digital Restoration Plan\nInspired by Tamil heritage, we seek to layout the ultimate sensory UI.\n- Layer 1: Warm sandstone textures (#EADAC2).\n- Layer 2: Brass accents mimicking carved golden plaques.\n- Layer 3: Reactive physics widgets resembling falling palm leaves.",
+                    senderUsername = "siddarth_p",
+                    title = "Sandstone Physics Workspace with Siddarth P",
+                    docContent = "# Sandstone Digital Restoration Plan with Siddarth P\nInspired by Tamil heritage, we seek to layout the ultimate sensory UI.\n- Layer 1: Warm sandstone textures (#EADAC2).\n- Layer 2: Brass accents mimicking carved golden plaques.\n- Layer 3: Reactive physics widgets resembling falling palm leaves.",
                     proofOfWorkSummary = "In progress. Sandstone manuscript design asset pipeline set in workspace draft editor. Collaborators successfully synchronized on milestone deliverables."
                 )
             ).toInt()
@@ -490,7 +691,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             database.appDao().insertChat(
                 ChatEntity(
                     workspaceId = wsId,
-                    senderName = "Sandstone Media Inc",
+                    senderName = "Siddarth P",
                     messageText = "Welcome to the workspace! Let's build a carved-tablet layout that feels heavy, permanent, yet fully responsive on Android.",
                     timestamp = System.currentTimeMillis() - 3600000,
                     replyToId = null,
@@ -500,7 +701,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             database.appDao().insertChat(
                 ChatEntity(
                     workspaceId = wsId,
-                    senderName = "Avinaash Anand",
+                    senderName = "Avinaash A",
                     messageText = "Agreed! Let's leverage high custom-drawing canvas and physical-drag mechanics. Unread cards can stick to magnetic corner pockets.",
                     timestamp = System.currentTimeMillis() - 1800000,
                     replyToId = null,
@@ -514,9 +715,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             database.appDao().insertStickyNote(StickyNoteEntity(workspaceId = wsId, text = "Tamil Kolam Canvas Graphics", posX = 200f, posY = 400f, colorHex = "#E3F2FD"))
 
             // 3. Columns Kanban
-            database.appDao().insertTask(TaskEntity(workspaceId = wsId, title = "Design sandstone carved-tablet border layout", assignee = "Meenakshi", deadline = "May 30", columnStatus = "IN_PROGRESS"))
-            database.appDao().insertTask(TaskEntity(workspaceId = wsId, title = "Review structural intent questionnaires", assignee = "Avinaash", deadline = "June 2", columnStatus = "TODO"))
-            database.appDao().insertTask(TaskEntity(workspaceId = wsId, title = "Establish Room database schemas for chats & boards", assignee = "Avinaash", deadline = "Completed", columnStatus = "DONE"))
+            database.appDao().insertTask(TaskEntity(workspaceId = wsId, title = "Design sandstone carved-tablet border layout", assignee = "Siddarth P", deadline = "May 30", columnStatus = "IN_PROGRESS"))
+            database.appDao().insertTask(TaskEntity(workspaceId = wsId, title = "Review structural intent questionnaires", assignee = "Avinaash A", deadline = "June 2", columnStatus = "TODO"))
+            database.appDao().insertTask(TaskEntity(workspaceId = wsId, title = "Establish Room database schemas for chats & boards", assignee = "Avinaash A", deadline = "Completed", columnStatus = "DONE"))
 
             // 4. Meetings scheduler
             database.appDao().insertMeeting(

@@ -23,6 +23,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -162,6 +168,11 @@ fun InReachApp(viewModel: MainViewModel) {
     var showSettingsScreen by remember { mutableStateOf(false) }
     var currentAuthScreen by remember { mutableStateOf("login") }
 
+    // Pro Feature Gate state controllers
+    var showProInspectPage by remember { mutableStateOf(false) }
+    var globalProFeatureDetailPopup by remember { mutableStateOf<InReachFeature?>(null) }
+    var globalShowBillingGate by remember { mutableStateOf(false) }
+
     val gso = remember {
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
@@ -273,8 +284,93 @@ fun InReachApp(viewModel: MainViewModel) {
                 viewModel.activeTab.value = "inbox"
                 showSettingsScreen = false
                 Toast.makeText(context, "Logged out successfully", Toast.LENGTH_SHORT).show()
+            },
+            onOpenProInspect = {
+                showSettingsScreen = false
+                showProInspectPage = true
             }
         )
+        return
+    }
+
+    if (showProInspectPage) {
+        val isPro by viewModel.isProSubscribed.collectAsState()
+        var activeProDetailToShow by remember { mutableStateOf<InReachFeature?>(null) }
+        var showBillingGate by remember { mutableStateOf(false) }
+
+        InReachProInspectPage(
+            isInai = isInai,
+            isDark = isDark,
+            primaryBg = primaryBg,
+            containerBg = containerBg,
+            cardBg = cardBg,
+            primaryText = primaryText,
+            secondaryText = secondaryText,
+            accentGold = accentGold,
+            borderStroke = borderStroke,
+            isPro = isPro,
+            onUpgradeTap = {
+                if (isPro) {
+                    viewModel.isProSubscribed.value = false
+                    Toast.makeText(context, "📉 Pro Subscription Deactivated!", Toast.LENGTH_SHORT).show()
+                } else {
+                    showBillingGate = true
+                }
+            },
+            onFeatureTap = { feature ->
+                activeProDetailToShow = feature
+            },
+            onClose = {
+                showProInspectPage = false
+            }
+        )
+
+        // Show detailed feature popup
+        if (activeProDetailToShow != null) {
+            InReachProDetailPopup(
+                feature = activeProDetailToShow!!,
+                isInai = isInai,
+                primaryBg = primaryBg,
+                containerBg = containerBg,
+                cardBg = cardBg,
+                primaryText = primaryText,
+                secondaryText = secondaryText,
+                accentGold = accentGold,
+                borderStroke = borderStroke,
+                onUpgradeTap = {
+                    showBillingGate = true
+                },
+                onSeeAllProFeatures = {
+                    // Already on Inspect Page, just close popup
+                    activeProDetailToShow = null
+                },
+                onDismiss = {
+                    activeProDetailToShow = null
+                }
+            )
+        }
+
+        // Show Billing gateway dialog
+        if (showBillingGate) {
+            InReachProPaymentDialog(
+                isInai = isInai,
+                primaryBg = primaryBg,
+                containerBg = containerBg,
+                cardBg = cardBg,
+                primaryText = primaryText,
+                secondaryText = secondaryText,
+                accentGold = accentGold,
+                borderStroke = borderStroke,
+                onSuccess = {
+                    viewModel.isProSubscribed.value = true // Activate subscription state explicitly on success
+                    showBillingGate = false
+                    Toast.makeText(context, "🎉 Pro Subscription Status Updated!", Toast.LENGTH_LONG).show()
+                },
+                onDismiss = {
+                    showBillingGate = false
+                }
+            )
+        }
         return
     }
 
@@ -441,7 +537,8 @@ fun InReachApp(viewModel: MainViewModel) {
                             viewModel.declineMessage(msg)
                             selectedMessageForDetail = null
                         },
-                        viewModel = viewModel
+                        viewModel = viewModel,
+                        onFeaturePopupTrigger = { globalProFeatureDetailPopup = it }
                     )
                 }
 
@@ -507,7 +604,8 @@ fun InReachApp(viewModel: MainViewModel) {
                             selectedMutualContactUsername = eligibleMutuals.firstOrNull()?.username ?: ""
                             showWarmIntroSheet = true
                         },
-                        viewModel = viewModel
+                        viewModel = viewModel,
+                        onFeaturePopupTrigger = { globalProFeatureDetailPopup = it }
                     )
                 }
 
@@ -554,7 +652,8 @@ fun InReachApp(viewModel: MainViewModel) {
                         currentUser = currentUser,
                         profiles = profiles,
                         onUpdateProfile = { viewModel.updateProfile(it) },
-                        onOpenSettings = { showSettingsScreen = true }
+                        onOpenSettings = { showSettingsScreen = true },
+                        onOpenProInspect = { showProInspectPage = true }
                     )
                 }
             }
@@ -779,6 +878,54 @@ fun InReachApp(viewModel: MainViewModel) {
                     )
                 }
             }
+
+            // Global Pro Feature Detail Popup overlay
+            if (globalProFeatureDetailPopup != null) {
+                InReachProDetailPopup(
+                    feature = globalProFeatureDetailPopup!!,
+                    isInai = isInai,
+                    primaryBg = primaryBg,
+                    containerBg = containerBg,
+                    cardBg = cardBg,
+                    primaryText = primaryText,
+                    secondaryText = secondaryText,
+                    accentGold = accentGold,
+                    borderStroke = borderStroke,
+                    onUpgradeTap = {
+                        globalShowBillingGate = true
+                    },
+                    onSeeAllProFeatures = {
+                        globalProFeatureDetailPopup = null
+                        showProInspectPage = true
+                    },
+                    onDismiss = {
+                        globalProFeatureDetailPopup = null
+                    }
+                )
+            }
+
+            // Global Billing Gate overlay
+            if (globalShowBillingGate) {
+                val isPro by viewModel.isProSubscribed.collectAsState()
+                InReachProPaymentDialog(
+                    isInai = isInai,
+                    primaryBg = primaryBg,
+                    containerBg = containerBg,
+                    cardBg = cardBg,
+                    primaryText = primaryText,
+                    secondaryText = secondaryText,
+                    accentGold = accentGold,
+                    borderStroke = borderStroke,
+                    onSuccess = {
+                        viewModel.isProSubscribed.value = true
+                        globalShowBillingGate = false
+                        Toast.makeText(context, "🎉 Pro Subscription Status Updated!", Toast.LENGTH_LONG).show()
+                    },
+                    onDismiss = {
+                        globalShowBillingGate = false
+                    }
+                )
+            }
         }
     }
 }
@@ -799,7 +946,8 @@ fun InboxTabContent(
     onMessageSelect: (MessageEntity?) -> Unit,
     onAccept: (MessageEntity) -> Unit,
     onDecline: (MessageEntity) -> Unit,
-    viewModel: MainViewModel
+    viewModel: MainViewModel,
+    onFeaturePopupTrigger: (InReachFeature) -> Unit
 ) {
     val context = LocalContext.current
     val isDark by viewModel.isDarkMode.collectAsState()
@@ -1183,6 +1331,83 @@ fun InboxTabContent(
             }
 
             Spacer(modifier = Modifier.height(4.dp))
+
+            // --- Inbox Pro Features Quick Controls Row ---
+            val isProSubscribed by viewModel.isProSubscribed.collectAsState()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Feature 1: Expiry Controls
+                val expiryFeature = InReachProFeatures.list.firstOrNull { it.id == "inbox_expiry_controls" } ?: InReachProFeatures.list.first()
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(cardBg, RoundedCornerShape(8.dp))
+                        .border(1.dp, borderStroke, RoundedCornerShape(8.dp))
+                        .clickable {
+                            if (!isProSubscribed) {
+                                onFeaturePopupTrigger(expiryFeature)
+                            } else {
+                                Toast.makeText(context, "⏱️ Message Expiry Controls Enabled: Auto-destruct set to 7 days.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Auto-Expiry timer", fontSize = 10.sp, color = secondaryText)
+                            Text("7 Days Active", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = primaryText)
+                        }
+                        if (!isProSubscribed) {
+                            Text("🔒", fontSize = 12.sp, modifier = Modifier.testTag("lock_expiry"))
+                        } else {
+                            Text("⏱️", fontSize = 12.sp)
+                        }
+                    }
+                }
+
+                // Feature 2: Bulk Message Actions
+                val bulkFeature = InReachProFeatures.list.firstOrNull { it.id == "inbox_bulk_actions" } ?: InReachProFeatures.list.first()
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(cardBg, RoundedCornerShape(8.dp))
+                        .border(1.dp, borderStroke, RoundedCornerShape(8.dp))
+                        .clickable {
+                            if (!isProSubscribed) {
+                                onFeaturePopupTrigger(bulkFeature)
+                            } else {
+                                Toast.makeText(context, "🧹 Bulk Actions Enabled: Marked all messages as read & archived.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Bulk Read/Archive", fontSize = 10.sp, color = secondaryText)
+                            Text("Process All", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = primaryText)
+                        }
+                        if (!isProSubscribed) {
+                            Text("🔒", fontSize = 12.sp, modifier = Modifier.testTag("lock_bulk"))
+                        } else {
+                            Text("🧹", fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             if (sortedMessages.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1575,7 +1800,8 @@ fun PassportsTabContent(
     onToneCheck: () -> Unit,
     onAiDraft: (String, String) -> Unit,
     onSubmitMessage: (String) -> Unit,
-    viewModel: MainViewModel
+    viewModel: MainViewModel,
+    onFeaturePopupTrigger: (InReachFeature) -> Unit
 ) {
     val draftStr = activeDraft
     val isGenDraft = draftGenerating
@@ -1878,22 +2104,402 @@ fun PassportsTabContent(
             }
         }
     } else {
+        // State variables for robust client-side search and indexing
+        var searchQuery by remember { mutableStateOf("") }
+        var selectedFilterIntent by remember { mutableStateOf("All") }
+
+        // Filter profiles list based on search text and category tags - excluding Home and Connection profiles for separation
+        val filteredProfiles = remember(profiles, searchQuery, selectedFilterIntent) {
+            val homeUsernames = listOf("surya_jk", "hairy_gowtham", "shreya_a", "kumar_spam", "dilli_raj", "harshitha")
+            val connectionUsernames = listOf("siddarth_p", "dhanajeyan_j", "gopi_d", "santhosh_s")
+            val selfUsername = "avinaash"
+
+            profiles.filter { profile ->
+                val isSeparate = profile.username !in homeUsernames && 
+                                 profile.username !in connectionUsernames && 
+                                 profile.username != selfUsername
+
+                val matchesQuery = searchQuery.isEmpty() || 
+                        profile.displayName.contains(searchQuery, ignoreCase = true) ||
+                        profile.username.contains(searchQuery, ignoreCase = true) ||
+                        profile.bio.contains(searchQuery, ignoreCase = true) ||
+                        profile.openIntents.contains(searchQuery, ignoreCase = true)
+                
+                val matchesIntent = selectedFilterIntent == "All" || 
+                        profile.openIntents.contains(selectedFilterIntent, ignoreCase = true) ||
+                        (selectedFilterIntent == "Tech / Dev" && (profile.bio.contains("engineer", ignoreCase = true) || profile.bio.contains("developer", ignoreCase = true) || profile.bio.contains("tech", ignoreCase = true) || profile.bio.contains("software", ignoreCase = true) || profile.bio.contains("data", ignoreCase = true))) ||
+                        (selectedFilterIntent == "Finance" && (profile.bio.contains("invest", ignoreCase = true) || profile.bio.contains("finance", ignoreCase = true) || profile.bio.contains("funding", ignoreCase = true) || profile.bio.contains("web3", ignoreCase = true) || profile.bio.contains("crypto", ignoreCase = true))) ||
+                        (selectedFilterIntent == "Design" && (profile.bio.contains("design", ignoreCase = true) || profile.bio.contains("artist", ignoreCase = true) || profile.bio.contains("creative", ignoreCase = true) || profile.bio.contains("ux", ignoreCase = true) || profile.bio.contains("ui", ignoreCase = true)))
+
+                isSeparate && matchesQuery && matchesIntent
+            }
+        }
+
         // Browsing Directory list
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            Text(
-                text = "OPPORTUNITY PASSPORT REGISTRY",
-                color = accentGold,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
-            )
+            var showBadgeHelpDialog by remember { mutableStateOf(false) }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "OPPORTUNITY PASSPORT REGISTRY",
+                    color = accentGold,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                TextButton(
+                    onClick = { showBadgeHelpDialog = true },
+                    modifier = Modifier.height(28.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Verified,
+                        contentDescription = "Badge Info",
+                        tint = accentGold,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Badges Usage",
+                        color = accentGold,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            if (showBadgeHelpDialog) {
+                AlertDialog(
+                    onDismissRequest = { showBadgeHelpDialog = false },
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Verified,
+                                contentDescription = "Badge Info",
+                                tint = accentGold,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Identity Check Badges",
+                                color = primaryText,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    },
+                    text = {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = "Verification badges represent the level of ID authentication, trust checks, and secure attestation aligned to each peer's passport profile:",
+                                color = primaryText,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
+                            )
+
+                            // Tier 1
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Verified,
+                                    contentDescription = "Tier 1",
+                                    tint = Color(0xFFEF4444),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("Red Badge (Level 1)", color = primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text("Email check verification only. Simple self-service sign up.", color = secondaryText, fontSize = 11.sp)
+                                }
+                            }
+
+                            // Tier 2
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Verified,
+                                    contentDescription = "Tier 2",
+                                    tint = Color(0xFFFBBF24),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("Yellow Badge (Level 2)", color = primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text("Social check & multi-node platform attestation.", color = secondaryText, fontSize = 11.sp)
+                                }
+                            }
+
+                            // Tier 3
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Verified,
+                                    contentDescription = "Tier 3",
+                                    tint = Color(0xFF3B82F6),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("Blue Badge (Level 3)", color = primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text("Organization & active professional domain check.", color = secondaryText, fontSize = 11.sp)
+                                }
+                            }
+
+                            // Tier 4
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Verified,
+                                    contentDescription = "Tier 4",
+                                    tint = Color(0xFF8B5CF6),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("Purple Badge (Level 4)", color = primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text("Professional verified reference of 3+ vetted members.", color = secondaryText, fontSize = 11.sp)
+                                }
+                            }
+
+                            // Tier 5
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Verified,
+                                    contentDescription = "Tier 5",
+                                    tint = Color(0xFF10B981),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("Green Badge (Level 5)", color = primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text("State Government ID check & cryptographically signed.", color = secondaryText, fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showBadgeHelpDialog = false }) {
+                            Text("Acknowledge", color = accentGold, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    containerColor = cardBg,
+                    tonalElevation = 6.dp
+                )
+            }
+
             Spacer(modifier = Modifier.height(10.dp))
 
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                items(profiles) { profile ->
+            // Premium Search bar component
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("explore_search_input"),
+                placeholder = {
+                    Text(
+                        text = "Search by intent, title, skill, bio...",
+                        color = secondaryText.copy(alpha = 0.6f),
+                        fontSize = 13.sp
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Search icon",
+                        tint = accentGold,
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(
+                                imageVector = Icons.Default.Clear,
+                                contentDescription = "Clear search",
+                                tint = secondaryText,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = accentGold,
+                    unfocusedBorderColor = borderStroke,
+                    focusedTextColor = primaryText,
+                    unfocusedTextColor = primaryText,
+                    focusedContainerColor = cardBg,
+                    unfocusedContainerColor = cardBg
+                ),
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Scrollable Quick intent tags row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val intentFilters = listOf("All", "Job Offer", "Collaboration", "Mentorship", "Tech / Dev", "Finance", "Design")
+                intentFilters.forEach { category ->
+                    val isSelected = selectedFilterIntent == category
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                color = if (isSelected) accentGold else cardBg,
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .border(1.dp, if (isSelected) accentGold else borderStroke, RoundedCornerShape(10.dp))
+                            .clickable { selectedFilterIntent = category }
+                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = category,
+                            color = if (isSelected) (if (isInai) Color(0xFF3E2723) else Color(0xFF0F172A)) else primaryText,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // --- Explore screen Pro Features Row ---
+            val isProSubscribed by viewModel.isProSubscribed.collectAsState()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Feature 3: CUSTOM INTENT CATEGORIES
+                val customIntentsFeature = InReachProFeatures.list.firstOrNull { it.id == "set_intent_categories" } ?: InReachProFeatures.list.first()
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(cardBg, RoundedCornerShape(8.dp))
+                        .border(1.dp, borderStroke, RoundedCornerShape(8.dp))
+                        .clickable {
+                            if (!isProSubscribed) {
+                                onFeaturePopupTrigger(customIntentsFeature)
+                            } else {
+                                Toast.makeText(context, "✨ Custom Intent Categories Active: You can now map custom tags to local databases.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Custom Intent Tags", fontSize = 10.sp, color = secondaryText)
+                            Text("+ Map Custom Tag", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = primaryText)
+                        }
+                        if (!isProSubscribed) {
+                            Text("🔒", fontSize = 12.sp, modifier = Modifier.testTag("lock_custom_intents"))
+                        } else {
+                            Text("✨", fontSize = 12.sp)
+                        }
+                    }
+                }
+
+                // Feature 4: SENDER BLOCKLIST MANAGEMENT
+                val blocklistFeature = InReachProFeatures.list.firstOrNull { it.id == "set_blocklist" } ?: InReachProFeatures.list.first()
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(cardBg, RoundedCornerShape(8.dp))
+                        .border(1.dp, borderStroke, RoundedCornerShape(8.dp))
+                        .clickable {
+                            if (!isProSubscribed) {
+                                onFeaturePopupTrigger(blocklistFeature)
+                            } else {
+                                Toast.makeText(context, "🛡️ Sender Blocklist Active: No spam block conditions are triggered.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Sender Blocklist", fontSize = 10.sp, color = secondaryText)
+                            Text("Manage Blocks (0)", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = primaryText)
+                        }
+                        if (!isProSubscribed) {
+                            Text("🔒", fontSize = 12.sp, modifier = Modifier.testTag("lock_blocklist"))
+                        } else {
+                            Text("🛡️", fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (filteredProfiles.isEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "No results",
+                        tint = secondaryText.copy(alpha = 0.4f),
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "No matching passports found in registry",
+                        color = secondaryText,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center
+                    )
+                    if (searchQuery.isNotEmpty() || selectedFilterIntent != "All") {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(
+                            onClick = {
+                                searchQuery = ""
+                                selectedFilterIntent = "All"
+                            }
+                        ) {
+                            Text("Reset filters", color = accentGold, fontSize = 12.sp)
+                        }
+                    }
+                }
+            } else {
+                Text(
+                    text = "Showing ${filteredProfiles.size} Node Passports found",
+                    color = secondaryText,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.fillMaxWidth().weight(1f)
+                ) {
+                    items(filteredProfiles) { profile ->
                     val isExpanded = selectedProfileUsername == profile.username
                     Box(
                         modifier = Modifier
@@ -1938,11 +2544,18 @@ fun PassportsTabContent(
                                         Spacer(modifier = Modifier.width(6.dp))
 
                                         // Five-tier identity check badge system representation
-                                        for (step in 1..profile.verificationTier) {
+                                        for (step in 1..1) {
+                                            val badgeColor = when (profile.verificationTier) {
+                                                1 -> Color(0xFFEF4444) // Red: one verification
+                                                2 -> Color(0xFFFBBF24) // Yellow: two verifications
+                                                3 -> Color(0xFF3B82F6) // Blue: three verifications
+                                                4 -> Color(0xFF8B5CF6) // Purple: four verifications
+                                                else -> Color(0xFF10B981) // Green: maximum verifications
+                                            }
                                             Icon(
                                                 imageVector = Icons.Default.Verified,
                                                 contentDescription = "Tier $step verified",
-                                                tint = if (step == 5) Color(0xFF10B981) else accentGold,
+                                                tint = badgeColor,
                                                 modifier = Modifier.size(13.dp)
                                             )
                                         }
@@ -2000,6 +2613,7 @@ fun PassportsTabContent(
                         }
                     }
                 }
+            }
             }
         }
     }
@@ -2402,7 +3016,7 @@ fun ChatPanel(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(chats) { chat ->
-                val fromMe = chat.senderName == "Avinaash Anand"
+                val fromMe = chat.senderName == "Avinaash A"
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = if (fromMe) Arrangement.End else Arrangement.Start
@@ -3158,8 +3772,115 @@ fun MilestonesPanel(
 }
 
 // ==========================================
-// CUSTOM AUTHENTICATION LAYOUT
+// CUSTOM AUTHENTICATION LAYOUT & APP LOGO
 // ==========================================
+@Composable
+fun InReachLogoMini(modifier: Modifier = Modifier, logoSize: Int = 64) {
+    Box(
+        modifier = modifier
+            .size(logoSize.dp)
+            .background(Color(0xFF0B132B), CircleShape)
+            .border(1.5.dp, Color(0xFF3B82F6), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize().padding(10.dp)) {
+            val w = this.size.width
+            val h = this.size.height
+            val cx = w / 2f
+            val cy = h / 2f
+            val globeRadius = w * 0.35f
+
+            // 1. Draw globe background
+            drawCircle(
+                color = Color(0xFF1D4ED8),
+                radius = globeRadius,
+                center = Offset(cx, cy)
+            )
+
+            // 2. Grid lines
+            val gridColor = Color(0xFF1E3A8A).copy(alpha = 0.6f)
+            val strokeW = 1.5f
+            drawLine(
+                color = gridColor,
+                start = Offset(cx - globeRadius, cy),
+                end = Offset(cx + globeRadius, cy),
+                strokeWidth = strokeW
+            )
+            drawLine(
+                color = gridColor,
+                start = Offset(cx, cy - globeRadius),
+                end = Offset(cx, cy + globeRadius),
+                strokeWidth = strokeW
+            )
+
+            // 3. Draw Arch path (Portal)
+            val portalW = w * 0.28f
+            val portalH = h * 0.42f
+            val archThickness = w * 0.06f
+
+            val archLeft = cx - portalW / 2
+            val archRight = cx + portalW / 2
+            val archBottom = cy + portalH / 2 - 2f
+            val archTop = cy - portalH / 2 + portalW / 2
+
+            val archPath = Path().apply {
+                moveTo(archLeft, archBottom)
+                lineTo(archLeft, archTop)
+                arcTo(
+                    rect = Rect(archLeft, archTop - portalW / 2, archRight, archTop + portalW / 2),
+                    startAngleDegrees = 180f,
+                    sweepAngleDegrees = 180f,
+                    forceMoveTo = false
+                )
+                lineTo(archRight, archBottom)
+                val innerLeft = archLeft + archThickness
+                val innerRight = archRight - archThickness
+                val innerTop = archTop
+                val innerW = innerRight - innerLeft
+                lineTo(innerRight, archBottom)
+                lineTo(innerRight, innerTop)
+                arcTo(
+                    rect = Rect(innerLeft, innerTop - innerW / 2, innerRight, innerTop + innerW / 2),
+                    startAngleDegrees = 0f,
+                    sweepAngleDegrees = -180f,
+                    forceMoveTo = false
+                )
+                lineTo(innerLeft, archBottom)
+                close()
+            }
+            drawPath(
+                path = archPath,
+                color = Color.White,
+                style = Fill
+            )
+
+            // 4. Stylized human figure head
+            val headX = cx - 1f
+            val headY = cy - 4f
+            drawCircle(
+                color = Color.White,
+                radius = w * 0.045f,
+                center = Offset(headX, headY)
+            )
+
+            // Stylized sweeping human torso
+            val humanPath = Path().apply {
+                moveTo(cx - (w * 0.12f), cy + (h * 0.12f))
+                quadraticTo(cx - (w * 0.02f), cy + (h * 0.08f), cx - (w * 0.08f), cy + (h * 0.02f))
+                quadraticTo(cx - (w * 0.04f), cy - (h * 0.03f), cx + (w * 0.08f), cy - (h * 0.06f))
+                quadraticTo(cx + (w * 0.03f), cy - (h * 0.01f), cx - (w * 0.01f), cy + (h * 0.03f))
+                quadraticTo(cx - (w * 0.02f), cy + (h * 0.1f), cx - (w * 0.12f), cy + (h * 0.12f))
+                close()
+            }
+            drawPath(
+                path = humanPath,
+                color = Color.White,
+                style = Fill
+            )
+        }
+    }
+}
+
 @Composable
 fun AuthLayout(
     isInai: Boolean,
@@ -3178,9 +3899,9 @@ fun AuthLayout(
     onGoogleSignIn: () -> Unit
 ) {
     var email by remember { mutableStateOf("avinaash@inreach.io") }
-    var password by remember { mutableStateOf("••••••••") }
-    var name by remember { mutableStateOf("Avinaash Anand") }
-    var confirmPassword by remember { mutableStateOf("••••••••") }
+    var password by remember { mutableStateOf("12345678") }
+    var name by remember { mutableStateOf("Avinaash A") }
+    var confirmPassword by remember { mutableStateOf("12345678") }
     var passwordVisible by remember { mutableStateOf(false) }
 
     Box(
@@ -3200,20 +3921,8 @@ fun AuthLayout(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(accentGold.copy(alpha = 0.15f), CircleShape)
-                    .border(1.dp, accentGold, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Star,
-                    contentDescription = "InReach Icon",
-                    tint = accentGold,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
+            // High-fidelity dynamic app logo replacing the physical star icon
+            InReachLogoMini(logoSize = 64)
 
             Spacer(modifier = Modifier.height(14.dp))
 
@@ -3226,12 +3935,65 @@ fun AuthLayout(
             )
 
             Text(
-                text = if (currentScreen == "login") "Welcome back! Enter your credentials." else "Create your verified developer card",
+                text = "Secure gateway portal. Login or create an account below.",
                 fontSize = 12.sp,
                 color = secondaryText,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 4.dp, bottom = 20.dp)
+                modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
             )
+
+            // Modern sliding tab switcher for toggling screens
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .background(cardBg, RoundedCornerShape(12.dp))
+                    .border(1.dp, borderStroke, RoundedCornerShape(12.dp))
+                    .padding(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Tab: Login
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .background(
+                            if (currentScreen == "login") accentGold else Color.Transparent,
+                            RoundedCornerShape(8.dp)
+                        )
+                        .clickable { onScreenChange("login") },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Login",
+                        color = if (currentScreen == "login") (if (isInai) Color(0xFF3E2723) else Color.White) else secondaryText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // Tab: Sign Up
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .background(
+                            if (currentScreen == "signup") accentGold else Color.Transparent,
+                            RoundedCornerShape(8.dp)
+                        )
+                        .clickable { onScreenChange("signup") },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "New User Sign-up",
+                        color = if (currentScreen == "signup") (if (isInai) Color(0xFF3E2723) else Color.White) else secondaryText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
 
             if (currentScreen == "signup") {
                 OutlinedTextField(
@@ -3244,7 +4006,9 @@ fun AuthLayout(
                         focusedBorderColor = accentGold,
                         unfocusedBorderColor = borderStroke,
                         focusedTextColor = primaryText,
-                        unfocusedTextColor = primaryText
+                        unfocusedTextColor = primaryText,
+                        focusedContainerColor = cardBg,
+                        unfocusedContainerColor = cardBg
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -3263,7 +4027,9 @@ fun AuthLayout(
                     focusedBorderColor = accentGold,
                     unfocusedBorderColor = borderStroke,
                     focusedTextColor = primaryText,
-                    unfocusedTextColor = primaryText
+                    unfocusedTextColor = primaryText,
+                    focusedContainerColor = cardBg,
+                    unfocusedContainerColor = cardBg
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -3279,19 +4045,21 @@ fun AuthLayout(
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
                         Icon(
                             imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                            contentDescription = "Toggle",
+                            contentDescription = "Toggle password visibility",
                             tint = secondaryText,
                             modifier = Modifier.size(18.dp)
                         )
                     }
                 },
                 singleLine = true,
-                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = accentGold,
                     unfocusedBorderColor = borderStroke,
                     focusedTextColor = primaryText,
-                    unfocusedTextColor = primaryText
+                    unfocusedTextColor = primaryText,
+                    focusedContainerColor = cardBg,
+                    unfocusedContainerColor = cardBg
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -3305,12 +4073,14 @@ fun AuthLayout(
                     label = { Text("Confirm Password", fontSize = 11.sp) },
                     leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Lock", tint = secondaryText, modifier = Modifier.size(18.dp)) },
                     singleLine = true,
-                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = accentGold,
                         unfocusedBorderColor = borderStroke,
                         focusedTextColor = primaryText,
-                        unfocusedTextColor = primaryText
+                        unfocusedTextColor = primaryText,
+                        focusedContainerColor = cardBg,
+                        unfocusedContainerColor = cardBg
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -3318,6 +4088,7 @@ fun AuthLayout(
                 )
             }
 
+            // Primary active manual enter button renamed to "Login" on the login state
             Button(
                 onClick = {
                     if (currentScreen == "login") {
@@ -3334,7 +4105,7 @@ fun AuthLayout(
                     .testTag("submit_button")
             ) {
                 Text(
-                    text = if (currentScreen == "login") "Sign In To Sandbox" else "Join Peer Network",
+                    text = if (currentScreen == "login") "Login" else "Sign Up",
                     color = if (isInai) Color(0xFF3E2723) else Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp
@@ -3343,7 +4114,7 @@ fun AuthLayout(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Google Button (Interactive mock)
+            // Dedicated sign-by-google button as requested
             OutlinedButton(
                 onClick = { onGoogleSignIn() },
                 border = BorderStroke(1.dp, borderStroke),
@@ -3351,7 +4122,7 @@ fun AuthLayout(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = primaryText)
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = primaryText, containerColor = cardBg)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -3365,8 +4136,11 @@ fun AuthLayout(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
+            // Subtext navigation and indicators
+            val labelText = if (currentScreen == "login") "Want to join peer network? " else "Already registered on network? "
+            val linkText = if (currentScreen == "login") "Create Account" else "Sign In"
             Row(
                 modifier = Modifier
                     .clickable {
@@ -3380,12 +4154,12 @@ fun AuthLayout(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (currentScreen == "login") "Don't have an account? " else "Already have an account? ",
+                    text = labelText,
                     color = secondaryText,
                     fontSize = 11.sp
                 )
                 Text(
-                    text = if (currentScreen == "login") "Sign Up" else "Login",
+                    text = linkText,
                     color = accentGold,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -3412,12 +4186,14 @@ fun SettingsScreen(
     borderStroke: Color,
     viewModel: MainViewModel,
     onClose: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onOpenProInspect: () -> Unit
 ) {
     val context = LocalContext.current
     val isDarkModeState by viewModel.isDarkMode.collectAsState()
     val profileVisibilityPublic by viewModel.profileVisibilityPublic.collectAsState()
     val messageRequestsAnyone by viewModel.messageRequestsAnyone.collectAsState()
+    val isProSubscribed by viewModel.isProSubscribed.collectAsState()
 
     Column(
         modifier = Modifier
@@ -3462,6 +4238,66 @@ fun SettingsScreen(
         }
 
         Column(modifier = Modifier.padding(16.dp)) {
+            // PROMINENT INREACH PRO DIRECT GATEWAY LINK
+            Text(
+                text = "INREACH MEMBERSHIP CONTEXT",
+                color = accentGold,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = accentGold.copy(alpha = 0.15f)),
+                border = BorderStroke(1.5.dp, accentGold),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenProInspect() }
+                    .testTag("settings_pro_badge_card")
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = null,
+                                tint = accentGold,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                "InReach Pro Status Checker",
+                                color = primaryText,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "Audit, unlock, and manage 27 advanced pro features, live settings, and retention controls.",
+                            color = secondaryText,
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = "Inspect",
+                        tint = accentGold,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
             Text(
                 text = "APPEARANCE & RENDERING",
                 color = accentGold,
@@ -3870,6 +4706,79 @@ fun SettingsScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Text(
+                text = "INREACH MEMBERSHIP SETTINGS (PRO)",
+                color = accentGold,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = cardBg),
+                border = BorderStroke(1.dp, borderStroke),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    // Feature 5: NOTIFICATION PREFERENCES
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                if (!isProSubscribed) {
+                                    onOpenProInspect()
+                                } else {
+                                    Toast.makeText(context, "🔔 Notification Prefs Unlocked: Push and email routing successfully configured.", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            .padding(vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Notification Preferences", color = primaryText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("Configure instant email, SMS & push channels", color = secondaryText, fontSize = 10.sp)
+                        }
+                        if (!isProSubscribed) {
+                            Text("🔒", fontSize = 13.sp, modifier = Modifier.testTag("lock_notification"))
+                        } else {
+                            Text("🔔 Unlocked", fontSize = 11.sp, color = accentGold, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(1.dp).fillMaxWidth().background(borderStroke))
+
+                    // Feature 6: WORKSPACE INVITE CONTROLS
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                if (!isProSubscribed) {
+                                    onOpenProInspect()
+                                } else {
+                                    Toast.makeText(context, "💼 Invite Controls Unlocked: Restricting space signups via custom passwords.", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            .padding(vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Workspace Invite Controls", color = primaryText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("Restrict space join requests using authentication links", color = secondaryText, fontSize = 10.sp)
+                        }
+                        if (!isProSubscribed) {
+                            Text("🔒", fontSize = 13.sp, modifier = Modifier.testTag("lock_invites"))
+                        } else {
+                            Text("💼 Unlocked", fontSize = 11.sp, color = accentGold, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
@@ -3909,8 +4818,8 @@ fun ConnectionsTabContent(
     viewModel: MainViewModel
 ) {
     val scope = rememberCoroutineScope()
-    val acceptedSenderUsernames = messages.filter { it.status == "ACCEPTED" || it.id in listOf(6, 7, 8) }.map { it.senderUsername }.toSet()
-    val connectedProfiles = profiles.filter { acceptedSenderUsernames.contains(it.username) || it.username in listOf("sarah", "mike", "emma", "meenakshi") }
+    val acceptedSenderUsernames = messages.filter { it.status == "ACCEPTED" || it.id in listOf(5, 7) }.map { it.senderUsername }.toSet()
+    val connectedProfiles = profiles.filter { acceptedSenderUsernames.contains(it.username) || it.username in listOf("siddarth_p", "dhanajeyan_j", "gopi_d", "santhosh_s") }
 
     Column(
         modifier = Modifier
@@ -3987,7 +4896,7 @@ fun ConnectionsTabContent(
                                             modifier = Modifier
                                                 .size(8.dp)
                                                 .background(
-                                                    if (p.username in listOf("mike", "sarah")) Color(0xFF10B981) else Color.LightGray,
+                                                    if (p.username in listOf("siddarth_p", "dhanajeyan_j")) Color(0xFF10B981) else Color.LightGray,
                                                     CircleShape
                                                 )
                                         )
@@ -4082,7 +4991,8 @@ fun ProfileTabContent(
     currentUser: String,
     profiles: List<ProfileEntity>,
     onUpdateProfile: (ProfileEntity) -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onOpenProInspect: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -4090,7 +5000,7 @@ fun ProfileTabContent(
     // Find current profile or fall back dynamically
     val myProfile = profiles.find { it.username == currentUser } ?: ProfileEntity(
         username = currentUser,
-        displayName = if (currentUser == "avinaash") "Avinaash Anand" else "Anonymous Creator",
+        displayName = if (currentUser == "avinaash") "Avinaash A" else "Anonymous Creator",
         bio = if (currentUser == "avinaash") "Full-stack software developer focused on preserving high visual fidelity layouts, ancient Indian heritage digital assets, robust sandboxed applications, and cryptographic contract alignments." else "Epigrapher and design visual architect specializing on multi-language transcription preservation, sandstone manuscript simulation models, and classical arts telemetry.",
         openIntents = if (currentUser == "avinaash") "Collaboration, Mentorship, Speaking Invitation, Investment, Networking" else "Collaboration, Research, Speaking Invitation",
         trustScore = 98,
@@ -4746,6 +5656,17 @@ fun ProfileTabContent(
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(
+                        onClick = { onOpenProInspect() },
+                        modifier = Modifier.testTag("pro_inspect_profile_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FlashOn,
+                            contentDescription = "InReach Pro Service Catalog",
+                            tint = accentGold,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    IconButton(
                         onClick = { onOpenSettings() },
                         modifier = Modifier.testTag("theme_toggle")
                     ) {
@@ -4756,6 +5677,55 @@ fun ProfileTabContent(
                             modifier = Modifier.size(24.dp)
                         )
                     }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Clickable InReach Pro Feature Gate Entry Banner Card
+            Card(
+                colors = CardDefaults.cardColors(containerColor = accentGold.copy(alpha = 0.12f)),
+                border = BorderStroke(1.2.dp, accentGold),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenProInspect() }
+                    .testTag("profile_pro_banner_entry")
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.FlashOn,
+                            contentDescription = null,
+                            tint = accentGold,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "InReach Pro ⚡ Status Checker",
+                                color = primaryText,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Verify 27 pro gateways · Unlock premium features",
+                                color = secondaryText,
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+                    Icon(
+                        imageVector = Icons.Default.ArrowForward,
+                        contentDescription = "Open Pro Catalog",
+                        tint = accentGold,
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
 
@@ -4821,11 +5791,11 @@ fun ProfileTabContent(
                                 Icon(
                                     imageVector = Icons.Default.Verified, 
                                     contentDescription = "Trust verified", 
-                                    tint = if (myProfile.verificationTier == 5) Color(0xFF10B981) else accentGold, 
+                                    tint = when (myProfile.verificationTier) { 1 -> Color(0xFFEF4444); 2 -> Color(0xFFFBBF24); 3 -> Color(0xFF3B82F6); 4 -> Color(0xFF8B5CF6); else -> Color(0xFF10B981) }, 
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(tierText, color = if (myProfile.verificationTier == 5) Color(0xFF10B981) else accentGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Text(tierText, color = when (myProfile.verificationTier) { 1 -> Color(0xFFEF4444); 2 -> Color(0xFFFBBF24); 3 -> Color(0xFF3B82F6); 4 -> Color(0xFF8B5CF6); else -> Color(0xFF10B981) }, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }

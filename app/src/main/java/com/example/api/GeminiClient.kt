@@ -60,7 +60,7 @@ object GeminiClient {
         """.trimIndent()
 
         try {
-            val jsonResponse = callGeminiRaw(apiKey, prompt)
+            val jsonResponse = callGeminiText(apiKey, prompt)
             val cleanJson = sanitizeJsonString(jsonResponse)
             val json = JSONObject(cleanJson)
             val repliesArray = json.optJSONArray("smartReplies")
