@@ -325,16 +325,7 @@ fun InReachLogoPopupAnimation() {
         startAnim = true
     }
 
-    // Elastic scaling and fading entrance for the portal globe logo and brand typography
-    val scaleIn by animateFloatAsState(
-        targetValue = if (startAnim) 1f else 0.3f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "logo_scale"
-    )
-
+    // Clean fading entrance for the portal globe logo and brand typography
     val fadeInAlpha by animateFloatAsState(
         targetValue = if (startAnim) 1f else 0f,
         animationSpec = tween(durationMillis = 1000, easing = LinearOutSlowInEasing),
@@ -347,8 +338,6 @@ fun InReachLogoPopupAnimation() {
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer {
-                scaleX = scaleIn
-                scaleY = scaleIn
                 alpha = fadeInAlpha
             }
     ) {

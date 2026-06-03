@@ -187,7 +187,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     openIntents = "Collaboration, Mentorship, Speaking Invitation, Investment, Networking",
                     trustScore = 98,
                     responseRate = 96,
-                    verificationTier = 5, // Gov ID
+                    verificationTier = 3, // Premium Verified (up to level 3)
                     availabilityWindows = "Collaboration: 10AM-4PM Mon-Alt Fri",
                     avatarUrl = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop",
                     reputationScore = 98
@@ -204,7 +204,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     openIntents = "Collaboration, Research",
                     trustScore = 94,
                     responseRate = 91,
-                    verificationTier = 4,
+                    verificationTier = 2,
                     availabilityWindows = "Research: 2PM-6PM Mon-Wed",
                     avatarUrl = "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop",
                     reputationScore = 93
@@ -249,7 +249,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     openIntents = "Collaboration, Speaking Invitation",
                     trustScore = 93,
                     responseRate = 90,
-                    verificationTier = 4,
+                    verificationTier = 2,
                     availabilityWindows = "Mon-Fri 9AM-5PM",
                     avatarUrl = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop",
                     reputationScore = 94
@@ -264,7 +264,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     openIntents = "Collaboration, Investment",
                     trustScore = 95,
                     responseRate = 93,
-                    verificationTier = 4,
+                    verificationTier = 3,
                     availabilityWindows = "Daily 11AM-5PM",
                     avatarUrl = "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&h=150&fit=crop",
                     reputationScore = 95
@@ -279,7 +279,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     openIntents = "Collaboration, Research",
                     trustScore = 96,
                     responseRate = 95,
-                    verificationTier = 5,
+                    verificationTier = 3,
                     availabilityWindows = "Mon-Alt Fri 9AM-2PM",
                     avatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop",
                     reputationScore = 96
@@ -325,7 +325,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     openIntents = "Collaboration, Research",
                     trustScore = 97,
                     responseRate = 96,
-                    verificationTier = 5,
+                    verificationTier = 3,
                     availabilityWindows = "Daily 10AM-6PM",
                     avatarUrl = "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&h=150&fit=crop",
                     reputationScore = 98
@@ -340,7 +340,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     openIntents = "Collaboration, Networking",
                     trustScore = 95,
                     responseRate = 94,
-                    verificationTier = 4,
+                    verificationTier = 3,
                     availabilityWindows = "Daily 1PM-5PM",
                     avatarUrl = "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&h=150&fit=crop",
                     reputationScore = 96
@@ -370,7 +370,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     openIntents = "Collaboration, Speaking Invitation",
                     trustScore = 94,
                     responseRate = 93,
-                    verificationTier = 4,
+                    verificationTier = 3,
                     availabilityWindows = "Wed-Fri 11AM-4PM",
                     avatarUrl = "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&h=150&fit=crop",
                     reputationScore = 95
@@ -401,7 +401,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     openIntents = "Collaboration, Research",
                     trustScore = 93,
                     responseRate = 92,
-                    verificationTier = 4,
+                    verificationTier = 3,
                     availabilityWindows = "Mon-Wed 10AM-4PM",
                     avatarUrl = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop",
                     reputationScore = 94
@@ -431,7 +431,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     openIntents = "Collaboration, Mentorship",
                     trustScore = 95,
                     responseRate = 94,
-                    verificationTier = 4,
+                    verificationTier = 3,
                     availabilityWindows = "Tue-Wed 2PM-6PM",
                     avatarUrl = "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=150&h=150&fit=crop",
                     reputationScore = 96
@@ -446,7 +446,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     openIntents = "Collaboration, Networking",
                     trustScore = 92,
                     responseRate = 90,
-                    verificationTier = 4,
+                    verificationTier = 3,
                     availabilityWindows = "Mon-Fri 4PM-8PM",
                     avatarUrl = "https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=150&h=150&fit=crop",
                     reputationScore = 91
@@ -461,7 +461,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     openIntents = "Investment, Networking",
                     trustScore = 94,
                     responseRate = 93,
-                    verificationTier = 5,
+                    verificationTier = 3,
                     availabilityWindows = "Daily 10AM-12PM",
                     avatarUrl = "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=150&h=150&fit=crop",
                     reputationScore = 95
@@ -976,7 +976,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             // Load new details
             loadWorkspaceDetails()
-            activeTab.value = "workspaces"
+            activeTab.value = "connections"
         }
     }
 
@@ -1225,6 +1225,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun summarizeProposalDocument(currentText: String, onComplete: (String) -> Unit) {
+        val wId = selectedWorkspaceId.value ?: return
+        viewModelScope.launch {
+            try {
+                val enhanced = GeminiClient.enhanceProposal(currentText)
+                val ws = repository.getWorkspaceById(wId) ?: return@launch
+                repository.updateWorkspace(ws.copy(docContent = enhanced))
+                onComplete(enhanced)
+            } catch (e: Exception) {
+                onComplete(currentText)
+            }
+        }
+    }
+
     fun toggleTheme() {
         themeMode.value = if (themeMode.value == "InReach") "INAI" else "InReach"
     }
@@ -1238,7 +1252,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // --- TASK 1: Real Authentication Success Handle ---
     fun handleAuthenticationSuccess(email: String, name: String, profilePicUrl: String?) {
         viewModelScope.launch {
-            val username = email.substringBefore("@").lowercase().replace(".", "")
+            val username = if (email.contains("avinaash", ignoreCase = true)) "avinaash" else email.substringBefore("@").lowercase().replace(".", "")
             val existing = repository.getProfile(username)
             if (existing == null) {
                 val newProfile = ProfileEntity(

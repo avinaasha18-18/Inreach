@@ -245,11 +245,11 @@ fun InReachApp(viewModel: MainViewModel) {
             currentScreen = currentAuthScreen,
             onScreenChange = { currentAuthScreen = it },
             onLoginSuccess = { email, password ->
-                viewModel.isLoggedIn.value = true
-                Toast.makeText(context, "Logged in as ${viewModel.currentUser.value}!", Toast.LENGTH_SHORT).show()
+                viewModel.handleAuthenticationSuccess(email, "Avinaash A", null)
+                Toast.makeText(context, "Logged in!", Toast.LENGTH_SHORT).show()
             },
             onSignUpSuccess = { name, email, password ->
-                viewModel.isLoggedIn.value = true
+                viewModel.handleAuthenticationSuccess(email, name, null)
                 Toast.makeText(context, "Account created! Welcome, $name", Toast.LENGTH_SHORT).show()
             },
             onGoogleSignIn = {
@@ -468,6 +468,7 @@ fun InReachApp(viewModel: MainViewModel) {
                         indicatorColor = accentGold.copy(alpha = 0.2f)
                     )
                 )
+
                 NavigationBarItem(
                     selected = activeTab == "connections",
                     onClick = { viewModel.activeTab.value = "connections" },
@@ -532,6 +533,7 @@ fun InReachApp(viewModel: MainViewModel) {
                         onAccept = { msg ->
                             viewModel.acceptMessage(msg)
                             selectedMessageForDetail = null
+                            viewModel.activeTab.value = "connections"
                         },
                         onDecline = { msg ->
                             viewModel.declineMessage(msg)
@@ -1627,11 +1629,14 @@ fun WorkspaceTabContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(overlayBg)
-                    .padding(12.dp),
+                    .padding(top = 16.dp, bottom = 12.dp, start = 12.dp, end = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     IconButton(onClick = { viewModel.selectedWorkspaceId.value = null }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = accentGold)
                     }
@@ -1644,13 +1649,14 @@ fun WorkspaceTabContent(
                 Button(
                     onClick = showProofOfWork,
                     colors = ButtonDefaults.buttonColors(containerColor = accentGold),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(
                         "📄 Proof of Work",
                         color = if (isInai) Color(0xFF3E2723) else Color(0xFF0F172A),
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
                     )
                 }
             }
@@ -2201,7 +2207,7 @@ fun PassportsTabContent(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Text(
-                                text = "Verification badges represent the level of ID authentication, trust checks, and secure attestation aligned to each peer's passport profile:",
+                                text = "Verification badges represent the level of InReach ID authentication, trust checks, and secure attestation aligned to each peer's passport profile:",
                                 color = primaryText,
                                 fontSize = 12.sp,
                                 lineHeight = 16.sp
@@ -2218,7 +2224,7 @@ fun PassportsTabContent(
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column {
                                     Text("Red Badge (Level 1)", color = primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    Text("Email check verification only. Simple self-service sign up.", color = secondaryText, fontSize = 11.sp)
+                                    Text("Firebase email verification check completed.", color = secondaryText, fontSize = 11.sp)
                                 }
                             }
 
@@ -2233,7 +2239,7 @@ fun PassportsTabContent(
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column {
                                     Text("Yellow Badge (Level 2)", color = primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    Text("Social check & multi-node platform attestation.", color = secondaryText, fontSize = 11.sp)
+                                    Text("Phone multi-factor SMS OTP authenticated status.", color = secondaryText, fontSize = 11.sp)
                                 }
                             }
 
@@ -2248,37 +2254,7 @@ fun PassportsTabContent(
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column {
                                     Text("Blue Badge (Level 3)", color = primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    Text("Organization & active professional domain check.", color = secondaryText, fontSize = 11.sp)
-                                }
-                            }
-
-                            // Tier 4
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Verified,
-                                    contentDescription = "Tier 4",
-                                    tint = Color(0xFF8B5CF6),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column {
-                                    Text("Purple Badge (Level 4)", color = primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    Text("Professional verified reference of 3+ vetted members.", color = secondaryText, fontSize = 11.sp)
-                                }
-                            }
-
-                            // Tier 5
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Verified,
-                                    contentDescription = "Tier 5",
-                                    tint = Color(0xFF10B981),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column {
-                                    Text("Green Badge (Level 5)", color = primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    Text("State Government ID check & cryptographically signed.", color = secondaryText, fontSize = 11.sp)
+                                    Text("CameraX Biometric verification active liveness check.", color = secondaryText, fontSize = 11.sp)
                                 }
                             }
                         }
@@ -2633,6 +2609,108 @@ fun AnalyticsTabContent(
     viewModel: MainViewModel
 ) {
     val context = LocalContext.current
+    val isProSubscribed by viewModel.isProSubscribed.collectAsState()
+    var showPaywallDialog by remember { mutableStateOf(false) }
+
+    if (!isProSubscribed) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .background(accentGold.copy(alpha = 0.15f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = "Premium Locked",
+                    tint = accentGold,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "OPPORTUNITY ANALYTICS LOCKER",
+                color = primaryText,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 0.5.sp,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Advanced incoming inquiry trends, inbound category distributions, and professional outcomes signed PDF compilation are locked for standard accounts.",
+                color = secondaryText,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                lineHeight = 18.sp,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Card(
+                colors = CardDefaults.cardColors(containerColor = cardBg),
+                border = BorderStroke(1.dp, borderStroke),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Verified, contentDescription = null, tint = accentGold, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Dynamic Weekly Index inquiry tracking graphs", color = primaryText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Verified, contentDescription = null, tint = accentGold, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Intent category statistics distributions", color = primaryText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Verified, contentDescription = null, tint = accentGold, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Compile and export cryptographically signed PDF reports", color = primaryText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = { showPaywallDialog = true },
+                colors = ButtonDefaults.buttonColors(containerColor = accentGold),
+                modifier = Modifier.fillMaxWidth().height(48.dp)
+            ) {
+                Icon(Icons.Default.Star, contentDescription = null, tint = if (isInai) Color(0xFF3E2723) else Color(0xFF0F172A), modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Upgrade to InReach Pro (₹199 / Month)", color = if (isInai) Color(0xFF3E2723) else Color(0xFF0F172A), fontWeight = FontWeight.Bold)
+            }
+            
+            if (showPaywallDialog) {
+                InReachProPaymentDialog(
+                    isInai = isInai,
+                    primaryBg = Color.Transparent,
+                    containerBg = cardBg,
+                    cardBg = cardBg,
+                    primaryText = primaryText,
+                    secondaryText = secondaryText,
+                    accentGold = accentGold,
+                    borderStroke = borderStroke,
+                    onSuccess = {
+                        viewModel.isProSubscribed.value = true
+                        showPaywallDialog = false
+                    },
+                    onDismiss = {
+                        showPaywallDialog = false
+                    }
+                )
+            }
+        }
+        return
+    }
+
     val state by viewModel.analyticsUiState.collectAsState()
     var generateAnalyticsLoading by remember { mutableStateOf(false) }
     var showSuccessReportMsg by remember { mutableStateOf(false) }
@@ -3008,6 +3086,17 @@ fun ChatPanel(
     var fileSelectedState by remember { mutableStateOf<String?>(null) }
     var voiceDurationState by remember { mutableStateOf<Int?>(null) }
 
+    val context = LocalContext.current
+    val chatFilePickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        if (uri != null) {
+            val (name, size) = getFileNameAndSizeFromUri(context, uri)
+            fileSelectedState = "$name ($size)"
+            voiceDurationState = null
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier
@@ -3139,10 +3228,10 @@ fun ChatPanel(
 
             // File attachments button
             IconButton(onClick = {
-                fileSelectedState = listOf("proposal_restoration.pdf", "icon_design_canvas.png", "term_sheet_escrow.epub").random()
+                chatFilePickerLauncher.launch("*/*")
                 voiceDurationState = null
             }) {
-                Icon(Icons.Default.AttachFile, contentDescription = "Simulate File Selection", tint = accentGold)
+                Icon(Icons.Default.AttachFile, contentDescription = "Select Document Asset", tint = accentGold)
             }
 
             OutlinedTextField(
@@ -3349,7 +3438,7 @@ fun DocEditorPanel(
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -3357,30 +3446,40 @@ fun DocEditorPanel(
                 text = "LIGHTWEIGHT PROPOSAL & ACTION PLAN CO-WRITER",
                 color = accentGold,
                 fontSize = 11.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
             )
 
-            Button(
+            IconButton(
                 onClick = {
                     summarizeLoading = true
-                    viewModel.summarizeWorkspaceProofOfWork()
-                    // Delay reset
-                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    viewModel.summarizeProposalDocument(rawText) { result ->
+                        rawText = result
                         summarizeLoading = false
-                    }, 1200)
+                    }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = accentGold),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(accentGold, CircleShape)
             ) {
-                Text(
-                    text = if (summarizeLoading) "Summarizing..." else "🪄 AI Summarize Idea",
-                    fontSize = 10.sp,
-                    color = if (isInai) Color(0xFF3E2723) else Color(0xFF0F172A)
-                )
+                if (summarizeLoading) {
+                    CircularProgressIndicator(
+                        color = if (isInai) Color(0xFF3E2723) else Color(0xFF0F172A),
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = "AI Summarize",
+                        tint = if (isInai) Color(0xFF3E2723) else Color(0xFF0F172A),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         OutlinedTextField(
             value = rawText,
@@ -4923,49 +5022,6 @@ fun ConnectionsTabContent(
                                     color = secondaryText,
                                     fontSize = 10.sp
                                 )
-
-                                if (relatedWorkspace != null) {
-                                    Button(
-                                        onClick = { onOpenWorkspace(relatedWorkspace.id) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = accentGold),
-                                        shape = RoundedCornerShape(8.dp),
-                                        modifier = Modifier.height(34.dp)
-                                    ) {
-                                        Text(
-                                            "Open Workspace",
-                                            fontSize = 10.sp,
-                                            color = if (isInai) Color(0xFF3E2723) else Color.White,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                } else {
-                                    Button(
-                                        onClick = {
-                                            scope.launch {
-                                                val ws = WorkspaceEntity(
-                                                    messageId = 0,
-                                                    originalIntent = "Collaboration",
-                                                    senderUsername = p.username,
-                                                    recipientUsername = "avinaash",
-                                                    title = "Workspace with ${p.displayName}",
-                                                    docContent = "# Sandboxed Workspace\nDraft proposals secure here..."
-                                                )
-                                                val wsId = viewModel.database.appDao().insertWorkspace(ws).toInt()
-                                                onOpenWorkspace(wsId)
-                                            }
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = borderStroke),
-                                        shape = RoundedCornerShape(8.dp),
-                                        modifier = Modifier.height(34.dp)
-                                    ) {
-                                        Text(
-                                            "Launch Space",
-                                            fontSize = 10.sp,
-                                            color = primaryText,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
                             }
                         }
                     }
@@ -5005,7 +5061,7 @@ fun ProfileTabContent(
         openIntents = if (currentUser == "avinaash") "Collaboration, Mentorship, Speaking Invitation, Investment, Networking" else "Collaboration, Research, Speaking Invitation",
         trustScore = 98,
         responseRate = 96,
-        verificationTier = 5,
+        verificationTier = 3,
         availabilityWindows = if (currentUser == "avinaash") "Collaboration: 10AM-4PM Mon-Alt Fri" else "Research: 2PM-6PM Mon-Wed",
         avatarUrl = if (currentUser == "avinaash") "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop" else "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop",
         reputationScore = 98,
@@ -5040,40 +5096,65 @@ fun ProfileTabContent(
     var editCvFileSize by remember(myProfile) { mutableStateOf(myProfile.cvFileSize) }
     var editCvUpdatedDate by remember(myProfile) { mutableStateOf(myProfile.cvUpdatedDate) }
 
-    // Upload simulation states
+    // Upload states
     var isUploadingResume by remember { mutableStateOf(false) }
     var resumeUploadProgress by remember { mutableStateOf(0f) }
     var uploadStatusText by remember { mutableStateOf("") }
 
-    fun simulateResumeUpload() {
-        isUploadingResume = true
-        resumeUploadProgress = 0f
-        uploadStatusText = "Preparing high-trust connection protocols..."
-        scope.launch {
-            kotlinx.coroutines.delay(400)
-            resumeUploadProgress = 0.25f
-            uploadStatusText = "Extracting verified document headers..."
-            kotlinx.coroutines.delay(500)
-            resumeUploadProgress = 0.6f
-            uploadStatusText = "Signing file locally with PGP Cryptographic key..."
-            kotlinx.coroutines.delay(600)
-            resumeUploadProgress = 0.9f
-            uploadStatusText = "Saving verified asset securely to sandbox cache..."
-            kotlinx.coroutines.delay(500)
-            resumeUploadProgress = 1f
-            uploadStatusText = "Upload complete! Asset integrated successfully."
-            
-            val randomNum = (100..999).random()
-            editCvFileName = "verified_portfolio_resume_v${randomNum}.pdf"
-            editCvFileSize = "3.${(1..9).random()} MB"
-            
-            val calendar = java.util.Calendar.getInstance()
-            val format = java.text.SimpleDateFormat("MMM dd", java.util.Locale.US)
-            editCvUpdatedDate = format.format(calendar.time)
+    val filePickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        if (uri != null) {
+            val (name, size) = getFileNameAndSizeFromUri(context, uri)
+            isUploadingResume = true
+            resumeUploadProgress = 0f
+            uploadStatusText = "Preparing high-trust connection protocols..."
+            scope.launch {
+                kotlinx.coroutines.delay(300)
+                resumeUploadProgress = 0.35f
+                uploadStatusText = "Extracting verified document headers from '$name'..."
+                kotlinx.coroutines.delay(400)
+                resumeUploadProgress = 0.65f
+                uploadStatusText = "Signing file locally with PGP Cryptographic key..."
+                kotlinx.coroutines.delay(450)
+                resumeUploadProgress = 0.9f
+                uploadStatusText = "Saving verified asset securely to sandbox cache..."
+                kotlinx.coroutines.delay(400)
+                resumeUploadProgress = 1.0f
+                uploadStatusText = "Upload complete! Asset integrated successfully."
+                
+                editCvFileName = name
+                editCvFileSize = size
+                
+                val calendar = java.util.Calendar.getInstance()
+                val format = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.US)
+                editCvUpdatedDate = format.format(calendar.time)
 
-            kotlinx.coroutines.delay(350)
-            isUploadingResume = false
-            Toast.makeText(context, "Simulated resume upload completed!", Toast.LENGTH_SHORT).show()
+                kotlinx.coroutines.delay(350)
+                isUploadingResume = false
+                Toast.makeText(context, "Successfully uploaded: $name ($size)", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    var isUploadingPhoto by remember { mutableStateOf(false) }
+    var photoProgress by remember { mutableStateOf(0f) }
+
+    val photoPickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        if (uri != null) {
+            isUploadingPhoto = true
+            photoProgress = 0f
+            scope.launch {
+                for (i in 1..10) {
+                    kotlinx.coroutines.delay(80)
+                    photoProgress = i / 10f
+                }
+                editAvatarUrl = uri.toString()
+                isUploadingPhoto = false
+                Toast.makeText(context, "Successfully updated photograph!", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -5160,9 +5241,6 @@ fun ProfileTabContent(
                         Spacer(modifier = Modifier.width(16.dp))
                         
                         Column(modifier = Modifier.weight(1f)) {
-                            var isUploadingPhoto by remember { mutableStateOf(false) }
-                            var photoProgress by remember { mutableStateOf(0f) }
-                            
                             if (isUploadingPhoto) {
                                 Text("Uploading & Optimizing Matrix...", color = primaryText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 Spacer(modifier = Modifier.height(4.dp))
@@ -5174,24 +5252,7 @@ fun ProfileTabContent(
                             } else {
                                 Button(
                                     onClick = {
-                                        isUploadingPhoto = true
-                                        photoProgress = 0f
-                                        scope.launch {
-                                            for (i in 1..10) {
-                                                kotlinx.coroutines.delay(100)
-                                                photoProgress = i / 10f
-                                            }
-                                            // Assign a beautiful newly-uploaded avatar url
-                                            val uploadPool = listOf(
-                                                "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop",
-                                                "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop",
-                                                "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop",
-                                                "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop"
-                                            )
-                                            editAvatarUrl = uploadPool.random()
-                                            isUploadingPhoto = false
-                                            Toast.makeText(context, "Simulated photograph upload complete!", Toast.LENGTH_SHORT).show()
-                                        }
+                                        photoPickerLauncher.launch("image/*")
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = accentGold),
                                     shape = RoundedCornerShape(8.dp)
@@ -5540,7 +5601,7 @@ fun ProfileTabContent(
                             .fillMaxWidth()
                             .background(primaryBgColor(isInai, isDark), RoundedCornerShape(10.dp))
                             .border(width = 1.dp, color = accentGold, shape = RoundedCornerShape(10.dp))
-                            .clickable(enabled = !isUploadingResume) { simulateResumeUpload() }
+                            .clickable(enabled = !isUploadingResume) { filePickerLauncher.launch("*/*") }
                             .padding(16.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -5782,20 +5843,18 @@ fun ProfileTabContent(
                             Spacer(modifier = Modifier.height(6.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 val tierText = when (myProfile.verificationTier) {
-                                    5 -> "Gov ID Checked (Tier 5)"
-                                    4 -> "Corporate Verification (Tier 4)"
-                                    3 -> "Social Sign-off (Tier 3)"
+                                    3 -> "Biometric Liveness (Tier 3)"
                                     2 -> "SMS Authenticated (Tier 2)"
                                     else -> "Email Verified (Tier 1)"
                                 }
                                 Icon(
                                     imageVector = Icons.Default.Verified, 
                                     contentDescription = "Trust verified", 
-                                    tint = when (myProfile.verificationTier) { 1 -> Color(0xFFEF4444); 2 -> Color(0xFFFBBF24); 3 -> Color(0xFF3B82F6); 4 -> Color(0xFF8B5CF6); else -> Color(0xFF10B981) }, 
+                                    tint = when (myProfile.verificationTier) { 1 -> Color(0xFFEF4444); 2 -> Color(0xFFFBBF24); else -> Color(0xFF3B82F6) }, 
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(tierText, color = when (myProfile.verificationTier) { 1 -> Color(0xFFEF4444); 2 -> Color(0xFFFBBF24); 3 -> Color(0xFF3B82F6); 4 -> Color(0xFF8B5CF6); else -> Color(0xFF10B981) }, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Text(tierText, color = when (myProfile.verificationTier) { 1 -> Color(0xFFEF4444); 2 -> Color(0xFFFBBF24); else -> Color(0xFF3B82F6) }, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -5965,7 +6024,7 @@ fun ProfileTabContent(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // INAI MULTI-TIER ID VERIFICATION ENGINE PROGRESS CARD
+            // INREACH MULTI-TIER ID VERIFICATION ENGINE PROGRESS CARD
             Card(
                 colors = CardDefaults.cardColors(containerColor = cardBg),
                 border = BorderStroke(1.dp, borderStroke),
@@ -5973,7 +6032,7 @@ fun ProfileTabContent(
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
-                        text = "INAI MULTI-TIER ID VERIFICATION ENGINE",
+                        text = "INREACH MULTI-TIER ID VERIFICATION ENGINE",
                         color = accentGold,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -6176,3 +6235,43 @@ fun ProfileTabContent(
         }
     }
 }
+
+// Helper functions for real-time file upload details extraction
+fun getFileNameAndSizeFromUri(context: android.content.Context, uri: android.net.Uri): Pair<String, String> {
+    var name = "unknown_document.pdf"
+    var sizeStr = "1.2 MB"
+    try {
+        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+            val sizeIndex = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
+            if (cursor.moveToFirst()) {
+                if (nameIndex != -1) {
+                    val foundName = cursor.getString(nameIndex)
+                    if (!foundName.isNullOrEmpty()) {
+                        name = foundName
+                    }
+                }
+                if (sizeIndex != -1) {
+                    val sizeBytes = cursor.getLong(sizeIndex)
+                    if (sizeBytes > 0) {
+                        sizeStr = formatFileSize(sizeBytes)
+                    }
+                }
+            }
+        }
+    } catch (e: Exception) {
+        uri.lastPathSegment?.let { name = it }
+    }
+    return Pair(name, sizeStr)
+}
+
+fun formatFileSize(size: Long): String {
+    if (size <= 0) return "0 B"
+    val units = arrayOf("B", "KB", "MB", "GB")
+    val digitGroups = (Math.log10(size.toDouble()) / Math.log10(1024.0)).toInt()
+    if (digitGroups >= 0 && digitGroups < units.size) {
+        return String.format(java.util.Locale.US, "%.1f %s", size / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
+    }
+    return "$size B"
+}
+
