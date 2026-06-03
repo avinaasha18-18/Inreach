@@ -204,6 +204,22 @@ fun InReachApp(viewModel: MainViewModel) {
         }
     }
 
+    var splashState by remember { mutableStateOf("loading") }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(5000)
+        splashState = "logo_popup"
+        kotlinx.coroutines.delay(3000)
+        splashState = "done"
+    }
+
+    if (splashState != "done") {
+        InReachSplashLayout(
+            state = splashState,
+            onFinished = { splashState = "done" }
+        )
+        return
+    }
+
     if (!isLoggedIn) {
         AuthLayout(
             isInai = isInai,
@@ -1138,12 +1154,6 @@ fun InboxTabContent(
             )
         }
 
-        val warmIntros by viewModel.warmIntroRequests.collectAsState()
-        val pendingWarmIntros = remember(warmIntros) {
-            warmIntros.filter { it.status == "PENDING" }
-        }
-        var selectedSubTab by remember { mutableStateOf("QUEUE") }
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -1172,151 +1182,18 @@ fun InboxTabContent(
                 }
             }
 
-            // Sub Tab Selector Grid Controls for Warm Intro Routing
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                val isQueueSelected = selectedSubTab == "QUEUE"
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isQueueSelected) accentGold.copy(alpha = 0.25f) else cardBg
-                    ),
-                    border = BorderStroke(1.dp, if (isQueueSelected) accentGold else borderStroke),
-                    modifier = Modifier.weight(1f).clickable { selectedSubTab = "QUEUE" }
-                ) {
-                    Box(modifier = Modifier.fillMaxWidth().padding(10.dp), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "Central Queue (${sortedMessages.size})",
-                            color = if (isQueueSelected) accentGold else primaryText,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                val isIntrosSelected = selectedSubTab == "INTRODUCTIONS"
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isIntrosSelected) accentGold.copy(alpha = 0.25f) else cardBg
-                    ),
-                    border = BorderStroke(1.dp, if (isIntrosSelected) accentGold else borderStroke),
-                    modifier = Modifier.weight(1f).clickable { selectedSubTab = "INTRODUCTIONS" }
-                ) {
-                    Box(modifier = Modifier.fillMaxWidth().padding(10.dp), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "Introductions (${pendingWarmIntros.size})",
-                            color = if (isIntrosSelected) accentGold else primaryText,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-
             Spacer(modifier = Modifier.height(4.dp))
 
-            if (selectedSubTab == "INTRODUCTIONS") {
-                if (pendingWarmIntros.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No pending introductions to handle.", color = secondaryText, fontSize = 13.sp)
-                    }
-                } else {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        item {
-                            Text(
-                                text = "🤝 MUTUAL INTRODUCTION ROUTING MODULE",
-                                color = secondaryText,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
-                            )
-                        }
-
-                        items(pendingWarmIntros) { req ->
-                            Card(
-                                colors = CardColors(
-                                    containerColor = cardBg,
-                                    contentColor = primaryText,
-                                    disabledContainerColor = cardBg,
-                                    disabledContentColor = secondaryText
-                                ),
-                                border = BorderStroke(1.dp, borderStroke),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(modifier = Modifier.padding(14.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "Proposal from @" + req.senderUserId,
-                                            color = accentGold,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            text = "Targeting @" + req.targetUserId,
-                                            color = primaryText,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = req.introMessage,
-                                        color = primaryText,
-                                        fontSize = 12.sp,
-                                        modifier = Modifier.padding(vertical = 4.dp)
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        OutlinedButton(
-                                            onClick = {
-                                                viewModel.declineWarmIntro(req)
-                                                Toast.makeText(context, "Warm introduction request declined.", Toast.LENGTH_SHORT).show()
-                                            },
-                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red),
-                                            border = BorderStroke(1.dp, Color.Red),
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            Text("Decline", fontSize = 11.sp)
-                                        }
-
-                                        Button(
-                                            onClick = {
-                                                viewModel.approveWarmIntro(req)
-                                                Toast.makeText(context, "Warm introduction approved! Target connection established.", Toast.LENGTH_SHORT).show()
-                                            },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            Text("Approve", color = Color.White, fontSize = 11.sp)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+            if (sortedMessages.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Inbox is clear! No inquiries present.", color = secondaryText, fontSize = 14.sp)
                 }
             } else {
-                if (sortedMessages.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Inbox is clear! No inquiries present.", color = secondaryText, fontSize = 14.sp)
-                    }
-                } else {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        item {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    item {
                         Text(
                             text = "📥 CENTRAL DIRECTORY QUEUE",
                             color = secondaryText,
@@ -1414,7 +1291,6 @@ fun InboxTabContent(
             }
         }
     }
-}
 }
 
 // ==========================================
